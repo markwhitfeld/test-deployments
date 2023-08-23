@@ -1,0 +1,30 @@
+node_modules
+.env
+dist
+yarn-error.log
+
+.tool-versions
+.cache
+
+# Track only extensions.json for recommended VS Code extensions
+.vscode/*
+!.vscode/extensions.json
+
+# Global: Don't track environment files that contain personal access tokens
+.envrc
+
+# Global: TypeScript compiler output
+out-tsc
+
+# Global: ignore tooling log files
+npm-*.log
+yarn-*.log
+.byebug_history
+
+# Global: don't track IDE configuration
+.idea
+*.sublime-workspace
+
+# Global: OS-specific cache files
+.DS_Store
+Thumbs.db
