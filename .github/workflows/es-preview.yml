@@ -55,14 +55,6 @@ jobs:
           commit_user_name: stackblitz-gitops
           commit_user_email: devops@stackblitz.com
 
-      - name: Trigger 'build-and-push-ee-gha' CircleCI workflow
-        if: steps.gitops-auto-commit.outputs.changes_detected == 'true'
-        uses: CircleCI-Public/trigger-circleci-pipeline-action@v1.0.6
-        with:
-          GHA_Meta: ee-preview
-        env:
-          CCI_TOKEN: ${{ secrets.CCI_TOKEN }}
-
       - name: Publish status
         if: steps.gitops-auto-commit.outputs.changes_detected == 'true'
         uses: thollander/actions-comment-pull-request@v2
