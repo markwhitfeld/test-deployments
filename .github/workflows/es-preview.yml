@@ -1,0 +1,227 @@
+name: EE Preview App
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize, closed]
+  push:
+    branches:
+      - master
+      - main
+concurrency:
+  group: ee-preview-${{ github.head_ref }} # ${{ github.head_ref }} will be blank on push events, but we don't mind workflow collisions on the default branch
+  cancel-in-progress: true
+jobs:
+  trigger_build_and_rollout:
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }} # Current commit hash
+      HEAD_REF: ${{ github.head_ref }} # Branch name
+    # Skip unless the box is ticked and the PR is open
+    if: ${{ contains(github.event.pull_request.body, '- [x] Enterprise Server Preview App') && github.event.pull_request.state == 'open' }}
+    name: Build & deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout stackblitz/stackblitz
+        uses: actions/checkout@v3
+        with:
+          path: ./stackblitz
+
+      - name: Checkout stackblitz/gitops
+        uses: actions/checkout@v3
+        with:
+          repository: "stackblitz/gitops"
+          token: ${{ secrets.GITOPS_REPO_PAT }}
+          path: ./gitops
+
+      - name: Render ArgoCD Application manifest
+        id: create-manifest
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+          ROOT_ZONE: pr-${{ env.PR_NUMBER }}.enterprise.preview.stackblitz.com
+        run: |
+          mkdir -p ./gitops/kubernetes/argo-apps/preview-apps/enterprise \
+          && envsubst < ./stackblitz/.preview-apps/ee-preview.tpl.yaml > ./gitops/kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml
+
+      # pull down the most recent gitops repo changes to avoid fast-forward commits
+      - name: Pull gitops repo
+        run: git -C ./gitops pull
+
+      - name: Sync gitops repo
+        uses: stefanzweifel/git-auto-commit-action@v4
+        id: gitops-auto-commit
+        with:
+          repository: ./gitops
+          branch: main
+          commit_message: "chore: sync pr-${{ github.event.pull_request.number }}-enterprise"
+          commit_user_name: stackblitz-gitops
+          commit_user_email: devops@stackblitz.com
+
+      - name: Trigger 'build-and-push-ee-gha' CircleCI workflow
+        if: steps.gitops-auto-commit.outputs.changes_detected == 'true'
+        uses: CircleCI-Public/trigger-circleci-pipeline-action@v1.0.6
+        with:
+          GHA_Meta: ee-preview
+        env:
+          CCI_TOKEN: ${{ secrets.CCI_TOKEN }}
+
+      - name: Publish status
+        if: steps.gitops-auto-commit.outputs.changes_detected == 'true'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          comment_tag: ee-preview-status
+          message: |
+            ArgoCD will roll out your Enterprise Edition preview shortly  :hammer_and_wrench: See https://github.com/stackblitz/gitops/commit/${{ steps.gitops-auto-commit.outputs.commit_hash }}
+            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/stackblitz/gitops/blob/main/kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml#L30)  :memo:
+            If something seems stuck, check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/pr-${{ github.event.pull_request.number }}-enterprise)  :mag:
+            If you have any questions or issues, engage [`#devops` on Slack](https://stackblitz.slack.com/archives/C01F59F8J4B)  :mechanic:
+          mode: recreate
+
+      # Suppress new "ready" notifications from going out too soon
+      - name: Wait for teardown
+        if: steps.gitops-auto-commit.outputs.changes_detected == 'true'
+        uses: mydea/action-wait-for-api@v1
+        with:
+          url: "https://editor.pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com/users/sign_in"
+          timeout: 900
+          interval: 2
+          method: GET
+          expected-status: 503
+        env:
+          NODE_EXTRA_CA_CERTS: ./stackblitz/stackblitz-root-ca-1.crt
+
+      - name: Wait for readiness
+        uses: mydea/action-wait-for-api@v1
+        with:
+          url: "https://editor.pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com/users/sign_in"
+          timeout: 900
+          interval: 2
+          method: GET
+          expected-status: 200
+        env:
+          NODE_EXTRA_CA_CERTS: ./stackblitz/stackblitz-root-ca-1.crt
+
+      - name: Publish status
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          comment_tag: ee-preview-status
+          message: |
+            Your Enterprise Edition preview is ready! https://pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com  :zap:
+            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/stackblitz/gitops/blob/main/kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml#L30)  :memo:
+            You can check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/pr-${{ github.event.pull_request.number }}-enterprise) if you're interested  :mag:
+
+            ---
+            Initial login:
+            user: `admin` / pass: `${{ github.head_ref }}~1aZ`
+
+            To configure SAML, use the Issuer/Service Provider Entity ID `preview` and the following metadata URL:
+            `https://auth.pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com/simplesaml/saml2/idp/metadata.php`
+            If you have any questions or issues, engage [`#devops` on Slack](https://stackblitz.slack.com/archives/C01F59F8J4B)  :mechanic:
+          mode: recreate
+
+  clean_up:
+    # Skip unless the box _isn't_ ticked, or the PR is closed/merged
+    if: ${{ !contains(github.event.pull_request.body, '- [x] Enterprise Server Preview App') || github.event.pull_request.state == 'closed' }}
+    name: Clean up
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout stackblitz/gitops
+        uses: actions/checkout@v3
+        with:
+          repository: "stackblitz/gitops"
+          token: ${{ secrets.GITOPS_REPO_PAT }}
+          path: ./gitops
+
+      - name: Remove ArgoCD Appplication manifest
+        run: |
+          rm -f ./gitops/kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml
+
+      # pull down the most recent gitops repo changes to avoid fast-forward commits
+      - name: Pull gitops repo
+        run: git -C ./gitops pull
+
+      - name: Sync gitops repo
+        uses: stefanzweifel/git-auto-commit-action@v4
+        id: gitops-auto-commit
+        with:
+          repository: ./gitops
+          branch: main
+          commit_message: "chore: prune pr-${{ github.event.pull_request.number }}-enterprise"
+          commit_user_name: stackblitz-gitops
+          commit_user_email: devops@stackblitz.com
+
+      - name: Publish status
+        if: steps.gitops-auto-commit.outputs.changes_detected == 'true'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          comment_tag: ee-preview-status
+          message: |
+            Your Enterprise Edition preview will be pruned by ArgoCD shortly  :broom: See https://github.com/stackblitz/gitops/commit/${{ steps.gitops-auto-commit.outputs.commit_hash }}
+            You can check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/pr-${{ github.event.pull_request.number }}-enterprise) if you're interested, but you shouldn't find much  :mag:
+            If you have any questions or issues, engage [`#devops` on Slack](https://stackblitz.slack.com/archives/C01F59F8J4B)  :mechanic:
+
+  rollout_default:
+    # Skip unless this is a push event, specifically on the default branch (which we already filtered at the workflow's top level)
+    if: ${{ github.event_name == 'push' }}
+    env:
+      GIT_SHA: ${{ github.sha }} # Pushed commit hash
+      GIT_REF: ${{ github.ref }} # Pushed-on branch canonical name
+    name: Roll out default branch
+    runs-on: ubuntu-latest
+    steps:
+      # Expand ${GIT_REF##*/} with bash to get the "friendly" branch name -- on push events, GitHub doesn't expose this through the event API
+      - name: Set up extra env
+        run: |
+          echo "BRANCH_NAME=${GIT_REF##*/}" >> $GITHUB_ENV
+
+      - name: Checkout stackblitz/stackblitz
+        uses: actions/checkout@v3
+        with:
+          path: ./stackblitz
+
+      - name: Checkout stackblitz/gitops
+        uses: actions/checkout@v3
+        with:
+          repository: "stackblitz/gitops"
+          token: ${{ secrets.GITOPS_REPO_PAT }}
+          path: ./gitops
+
+      - name: Update or create ArgoCD Application manifest
+        run: |
+          mkdir -p ./gitops/kubernetes/argo-apps/preview-apps/enterprise \
+          && envsubst < ./stackblitz/.preview-apps/default-ee-preview.tpl.yaml > ./gitops/kubernetes/argo-apps/preview-apps/enterprise/${{ env.BRANCH_NAME }}-enterprise.yaml
+
+      # pull down the most recent gitops repo changes to avoid fast-forward commits
+      - name: Pull gitops repo
+        run: git -C ./gitops pull
+
+      - name: Sync gitops repo
+        uses: stefanzweifel/git-auto-commit-action@v4
+        id: gitops-auto-commit
+        with:
+          repository: ./gitops
+          branch: main
+          commit_message: "chore: sync ${{ env.BRANCH_NAME }}-enterprise"
+          commit_user_name: stackblitz-gitops
+          commit_user_email: devops@stackblitz.com
+
+      - name: Wait for teardown
+        if: steps.gitops-auto-commit.outputs.changes_detected == 'true'
+        uses: mydea/action-wait-for-api@v1
+        with:
+          url: "https://editor.${{ env.BRANCH_NAME }}.enterprise.preview.stackblitz.com/users/sign_in"
+          timeout: 900
+          interval: 2
+          method: GET
+          expected-status: 503
+        env:
+          NODE_EXTRA_CA_CERTS: ./stackblitz/stackblitz-root-ca-1.crt
+
+      - name: Wait for readiness
+        uses: mydea/action-wait-for-api@v1
+        with:
+          url: "https://editor.${{ env.BRANCH_NAME }}.enterprise.preview.stackblitz.com/users/sign_in"
+          timeout: 900
+          interval: 2
+          method: GET
+          expected-status: 200
+        env:
+          NODE_EXTRA_CA_CERTS: ./stackblitz/stackblitz-root-ca-1.crt
