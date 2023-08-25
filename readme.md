@@ -24,7 +24,7 @@ The `deployments` repository acts as a central point for managing deployment met
 
 The repository contains the following key components:
 
-- **`repositories.json`**: This file holds references to service branches and commit hashes. It's dynamically updated to maintain accurate deployment information.
+- **`metadata/repositories.json`**: This file holds references to service branches and commit hashes. It's dynamically updated to maintain accurate deployment information.
 
 - **Workflows**:
   - **Service Workflows**: Service repositories trigger workflows to provide deployment information to the `deployments` repository.
@@ -54,7 +54,7 @@ We welcome contributions to improve the preview deployment process. Feel free to
 
 ## Contact
 
-If you have questions or need assistance, please contact our team. We're here to help you streamline preview deployments and ensure smooth development processes.
+If you have questions or need assistance, please contact our team using the #devops slack channel. We're here to help you with your preview deployments and ensure smooth development processes.
 
 Thank you for your contributions to maintaining efficient preview deployments in our multi-service applications!
 

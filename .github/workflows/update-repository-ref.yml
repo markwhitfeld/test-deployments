@@ -1,0 +1,102 @@
+name: Update Repository Reference
+
+on:
+  workflow_call:
+    inputs:
+      repository_name:
+        required: true
+        type: string
+    secrets:
+      deployments-repo-token:
+        required: true
+env:  
+  repository_name: ${{ input.repository_name }}
+  repository_ref: ${{ GITHUB_REPOSITORY }}
+  commit_hash: ${{ github.event.pull_request.head.sha || github.sha }}
+  branch_name: ${{ github.head_ref || github.ref_name}}  
+  pr_state: ${{ github.event.pull_request.state }}
+  testing: true
+jobs:
+  update-repositories-json:
+    name: Update Deployments Metadata
+    runs-on: ubuntu-latest
+    env:
+      target_branch: ${{ env.branch_name == 'master' && 'main' || env.branch_name }}
+    steps:
+      - name: Checkout ${{ github.action_repository }}
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.action_repository }}
+          token: ${{ secrets.deployments-repo-token }}
+          path: ./deployments
+
+      - name: Create or checkout branch
+        id: branch
+        run: |
+          git checkout ${{ env.target_branch }}
+        working-directory: ./deployments
+        continue-on-error: true
+
+      - name: Update repositories.json
+        run: |
+          bash scripts/update_repositories.sh \
+            ${{ env.repository_ref }} \
+            ${{ env.repository_name }} \
+            ${{ env.target_branch }} \
+            ${{ env.commit_hash }}
+        working-directory: ./deployments
+
+      # Pull down the most recent gitops repo changes to avoid fast-forward commits
+      - name: Ensure latest from repo
+        run: git pull
+        working-directory: ./deployments
+
+      - name: Commit metadata to deployments repo
+        if: ${{ testing == false }}
+        uses: stefanzweifel/git-auto-commit-action@v4
+        id: auto-commit-changes-to-target
+        with:
+          repository: ./deployments
+          branch: ${{ env.target_branch }}
+          commit_message: "chore: update metadata for ${{ env.repository_name }}:${{ env.branch_name }}"
+          commit_user_name: stackblitz-gitops
+          commit_user_email: devops@stackblitz.com
+
+      - name: Create or update the PR if we are not committing to main
+        if: ${{ testing == false && env.target_branch != 'main' }}
+        uses: peter-evans/create-pull-request@v5
+        id: cpr
+        with:
+          token: ${{ secrets.deployments-repo-token }}
+          branch: ${{ env.target_branch }}
+          title: "Deployment preview for ${{ env.branch_name }}"
+          body-path: .github/pull_request_template.md
+          path: ./deployments
+
+      - name: Check outputs
+        if: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
+          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
+          echo "Normalized branch name - ${{ env.target_branch }}"
+          echo ""
+          echo "== METADATA =="
+          cat ./deployments/metadata/repositories.json
+      
+      ### TESTING OUTPUTS ##
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Dump job context
+        env:
+          JOB_CONTEXT: ${{ toJson(job) }}
+        run: echo "$JOB_CONTEXT"
+      - name: Dump steps context
+        env:
+          STEPS_CONTEXT: ${{ toJson(steps) }}
+        run: echo "$STEPS_CONTEXT"
+      - name: Dump runner context
+        env:
+          RUNNER_CONTEXT: ${{ toJson(runner) }}
+        run: echo "$RUNNER_CONTEXT"
