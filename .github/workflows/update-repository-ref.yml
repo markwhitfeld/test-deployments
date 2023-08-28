@@ -10,7 +10,7 @@ on:
       deployments-repo-token:
         required: true
 env:  
-  repository_name: ${{ input.repository_name }}
+  repository_name: ${{ inputs.repository_name }}
   repository_ref: ${{ GITHUB_REPOSITORY }}
   commit_hash: ${{ github.event.pull_request.head.sha || github.sha }}
   branch_name: ${{ github.head_ref || github.ref_name}}  
