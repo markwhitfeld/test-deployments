@@ -19,7 +19,7 @@ env:
   branch_name: ${{ github.head_ref || github.ref_name}}  
   pr_state: ${{ github.event.pull_request.state }}
   target_branch: ${{ (github.head_ref || github.ref_name) == 'master' && 'main' || (github.head_ref || github.ref_name) }}
-  deployments_repository: ${{ github.action_repository }}
+  deployments_repository: markwhitfeld/test-deployments
   testing: true
 jobs:
   update-repositories-json:
