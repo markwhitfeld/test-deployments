@@ -68,9 +68,15 @@ jobs:
         continue-on-error: true
         
       - name: List files
+        run: ls -lR
+        
+      - name: List files
         run: |
-          cd ./deployments
-          ls -lR        
+          cd $GITHUB_WORKSPACE/deployments
+          ls -lR
+        
+      - name: List files
+        run: ls -lR    
 
       - name: Update repositories.json
         run: |
