@@ -19,7 +19,7 @@ env:
   branch_name: ${{ github.head_ref || github.ref_name}}  
   pr_state: ${{ github.event.pull_request.state }}
   target_branch: ${{ (github.head_ref || github.ref_name) == 'master' && 'main' || (github.head_ref || github.ref_name) }}
-  testing: false
+  testing: "false"
 jobs:
   update-repositories-json:
     name: Update Deployments Metadata
@@ -87,7 +87,7 @@ jobs:
         working-directory: ./deployments
 
       - name: Commit metadata to deployments repo
-        if: ${{ env.testing == false }}
+        if: ${{ env.testing == "false" }}
         uses: stefanzweifel/git-auto-commit-action@v4
         id: auto-commit-changes-to-target
         with:
@@ -98,7 +98,7 @@ jobs:
           commit_user_email: devops@stackblitz.com
 
       - name: Create or update the PR if we are not committing to main
-        if: ${{ env.testing == false && env.target_branch != 'main' }}
+        if: ${{ env.testing == "false" && env.target_branch != 'main' }}
         uses: peter-evans/create-pull-request@v5
         id: cpr
         with:
