@@ -27,6 +27,33 @@ jobs:
     # env:
     #   target_branch: ${{ env.branch_name == 'master' && 'main' || env.branch_name }}
     steps:
+      
+      ### TESTING OUTPUTS ##
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+        
+      - name: Dump inputs context
+        env:
+          INPUTS_CONTEXT: ${{ toJson(inputs) }}
+        run: echo "$INPUTS_CONTEXT"
+        
+      - name: Dump job context
+        env:
+          JOB_CONTEXT: ${{ toJson(job) }}
+        run: echo "$JOB_CONTEXT"
+        
+      - name: Dump steps context
+        env:
+          STEPS_CONTEXT: ${{ toJson(steps) }}
+        run: echo "$STEPS_CONTEXT"
+      - name: Dump runner context
+        env:
+          RUNNER_CONTEXT: ${{ toJson(runner) }}
+        run: echo "$RUNNER_CONTEXT"
+
+        
       - name: Checkout ${{ github.action_repository }}
         uses: actions/checkout@v3
         with:
@@ -40,10 +67,14 @@ jobs:
           git checkout ${{ env.target_branch }}
         working-directory: ./deployments
         continue-on-error: true
+        
+      - name: List files
+        run: ls -lR
+        working-directory: ./deployments
 
       - name: Update repositories.json
         run: |
-          bash scripts/update_repositories.sh \
+          bash ./scripts/update_repositories.sh \
             ${{ env.repository_ref }} \
             ${{ env.repository_name }} \
             ${{ env.target_branch }} \
@@ -86,28 +117,3 @@ jobs:
           echo ""
           echo "== METADATA =="
           cat ./deployments/metadata/repositories.json
-      
-      ### TESTING OUTPUTS ##
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
-        
-      - name: Dump inputs context
-        env:
-          INPUTS_CONTEXT: ${{ toJson(inputs) }}
-        run: echo "$INPUTS_CONTEXT"
-        
-      - name: Dump job context
-        env:
-          JOB_CONTEXT: ${{ toJson(job) }}
-        run: echo "$JOB_CONTEXT"
-        
-      - name: Dump steps context
-        env:
-          STEPS_CONTEXT: ${{ toJson(steps) }}
-        run: echo "$STEPS_CONTEXT"
-      - name: Dump runner context
-        env:
-          RUNNER_CONTEXT: ${{ toJson(runner) }}
-        run: echo "$RUNNER_CONTEXT"
