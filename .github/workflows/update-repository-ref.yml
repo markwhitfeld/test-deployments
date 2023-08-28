@@ -58,38 +58,33 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: markwhitfeld/test-deployments
-          ref: main
           token: ${{ secrets.deployments-repo-token }}
           path: ./deployments
 
       - name: Create or checkout branch
         id: branch
         run: |
-          git -C ./deployments checkout ${{ env.target_branch }}
+          git checkout ${{ env.target_branch }}
+        working-directory: ./deployments
         continue-on-error: true
         
       - name: List files
         run: ls -lR
-        
-      - name: List files
-        run: |
-          cd $GITHUB_WORKSPACE/deployments
-          ls -lR
-        
-      - name: List files
-        run: ls -lR    
+        working-directory: ./deployments
 
       - name: Update repositories.json
         run: |
-          bash ./deployments/scripts/update_repositories.sh \
+          bash scripts/update_repositories.sh \
             ${{ env.repository_ref }} \
             ${{ env.repository_name }} \
             ${{ env.target_branch }} \
             ${{ env.commit_hash }}
+        working-directory: ./deployments
 
       # Pull down the most recent gitops repo changes to avoid fast-forward commits
       - name: Ensure latest from repo
-        run: git -C ./deployments pull
+        run: git pull
+        working-directory: ./deployments
 
       - name: Commit metadata to deployments repo
         if: ${{ env.testing == false }}
