@@ -15,6 +15,9 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }} # Current commit hash
       HEAD_REF: ${{ github.head_ref }} # Branch name
+      TEMPLATE_PATH: ./stackblitz/.preview-apps/dotcom-preview.tpl.yaml
+      ARGO_TARGET_MANIFEST_PATH: kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml
+      PREVIEW_APP_DOMAIN: pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com
     # Skip unless the box is ticked and the PR is open
     if: ${{ contains(github.event.pull_request.body, '- [x] Enterprise Server Preview App') && github.event.pull_request.state == 'open' }}
     name: Build & deploy
@@ -36,10 +39,10 @@ jobs:
         id: create-manifest
         env:
           BRANCH_NAME: ${{ github.head_ref }}
-          ROOT_ZONE: pr-${{ env.PR_NUMBER }}.enterprise.preview.stackblitz.com
+          ROOT_ZONE: ${{ env.PREVIEW_APP_DOMAIN }}
         run: |
-          mkdir -p ./gitops/kubernetes/argo-apps/preview-apps/enterprise \
-          && envsubst < ./stackblitz/.preview-apps/ee-preview.tpl.yaml > ./gitops/kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml
+          mkdir -p "$(dirname ./gitops/${{ env.ARGO_TARGET_MANIFEST_PATH }})" \
+          && envsubst < ${{ env.TEMPLATE_PATH }} > ./gitops/${{ env.ARGO_TARGET_MANIFEST_PATH }}
 
       # pull down the most recent gitops repo changes to avoid fast-forward commits
       - name: Pull gitops repo
@@ -61,8 +64,8 @@ jobs:
         with:
           comment_tag: ee-preview-status
           message: |
-            ArgoCD will roll out your Enterprise Edition preview shortly  :hammer_and_wrench: See https://github.com/stackblitz/gitops/commit/${{ steps.gitops-auto-commit.outputs.commit_hash }}
-            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/stackblitz/gitops/blob/main/kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml#L30)  :memo:
+            ArgoCD will roll out your Enterprise Edition preview shortly :hammer_and_wrench: See https://github.com/stackblitz/gitops/commit/${{ steps.gitops-auto-commit.outputs.commit_hash }}
+            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/stackblitz/gitops/blob/main/${{ env.ARGO_TARGET_MANIFEST_PATH }}#L30)  :memo:
             If something seems stuck, check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/pr-${{ github.event.pull_request.number }}-enterprise)  :mag:
             If you have any questions or issues, engage [`#devops` on Slack](https://stackblitz.slack.com/archives/C01F59F8J4B)  :mechanic:
           mode: recreate
@@ -72,7 +75,7 @@ jobs:
         if: steps.gitops-auto-commit.outputs.changes_detected == 'true'
         uses: mydea/action-wait-for-api@v1
         with:
-          url: "https://editor.pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com/users/sign_in"
+          url: "https://editor.${{ env.PREVIEW_APP_DOMAIN }}/users/sign_in"
           timeout: 900
           interval: 2
           method: GET
@@ -83,7 +86,7 @@ jobs:
       - name: Wait for readiness
         uses: mydea/action-wait-for-api@v1
         with:
-          url: "https://editor.pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com/users/sign_in"
+          url: "https://editor.${{ env.PREVIEW_APP_DOMAIN }}/users/sign_in"
           timeout: 900
           interval: 2
           method: GET
@@ -96,8 +99,8 @@ jobs:
         with:
           comment_tag: ee-preview-status
           message: |
-            Your Enterprise Edition preview is ready! https://pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com  :zap:
-            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/stackblitz/gitops/blob/main/kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml#L30)  :memo:
+            Your Enterprise Edition preview is ready! https://${{ env.PREVIEW_APP_DOMAIN }}  :zap:
+            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/stackblitz/gitops/blob/main/${{ env.ARGO_TARGET_MANIFEST_PATH }}#L30)  :memo:
             You can check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/pr-${{ github.event.pull_request.number }}-enterprise) if you're interested  :mag:
 
             ---
@@ -105,7 +108,7 @@ jobs:
             user: `admin` / pass: `${{ github.head_ref }}~1aZ`
 
             To configure SAML, use the Issuer/Service Provider Entity ID `preview` and the following metadata URL:
-            `https://auth.pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com/simplesaml/saml2/idp/metadata.php`
+            `https://auth.${{ env.PREVIEW_APP_DOMAIN }}/simplesaml/saml2/idp/metadata.php`
             If you have any questions or issues, engage [`#devops` on Slack](https://stackblitz.slack.com/archives/C01F59F8J4B)  :mechanic:
           mode: recreate
 
@@ -124,7 +127,7 @@ jobs:
 
       - name: Remove ArgoCD Appplication manifest
         run: |
-          rm -f ./gitops/kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml
+          rm -f ./gitops/${{ env.ARGO_TARGET_MANIFEST_PATH }}
 
       # pull down the most recent gitops repo changes to avoid fast-forward commits
       - name: Pull gitops repo
