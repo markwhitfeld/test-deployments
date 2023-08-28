@@ -19,6 +19,7 @@ env:
   branch_name: ${{ github.head_ref || github.ref_name}}  
   pr_state: ${{ github.event.pull_request.state }}
   target_branch: ${{ (github.head_ref || github.ref_name) == 'master' && 'main' || (github.head_ref || github.ref_name) }}
+  deployments_repository: ${{ github.action_repository }}
   testing: true
 jobs:
   update-repositories-json:
@@ -57,7 +58,7 @@ jobs:
       - name: Checkout ${{ github.action_repository }}
         uses: actions/checkout@v3
         with:
-          repository: ${{ github.action_repository }}
+          repository: ${{ env.deployments_repository }}
           token: ${{ secrets.deployments-repo-token }}
           path: ./deployments
 
