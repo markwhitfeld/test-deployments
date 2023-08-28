@@ -6,6 +6,9 @@ on:
       repository_name:
         required: true
         type: string
+      image_commit_hash:
+        required: false
+        type: string
     secrets:
       deployments-repo-token:
         required: true
@@ -89,10 +92,17 @@ jobs:
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
+        
+      - name: Dump inputs context
+        env:
+          INPUTS_CONTEXT: ${{ toJson(inputs) }}
+        run: echo "$INPUTS_CONTEXT"
+        
       - name: Dump job context
         env:
           JOB_CONTEXT: ${{ toJson(job) }}
         run: echo "$JOB_CONTEXT"
+        
       - name: Dump steps context
         env:
           STEPS_CONTEXT: ${{ toJson(steps) }}
