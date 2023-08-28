@@ -1,2 +1,10 @@
 {
+  "markwhitfeld/test-service1": {
+    "name": "test-service-one",
+    "branches": {
+      "main": {
+        "commit": "cb85fbabb2c56a47c03b7ef3fd2ca96e44feb153"
+      }
+    }
+  }
 }
