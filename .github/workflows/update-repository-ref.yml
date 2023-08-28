@@ -64,27 +64,25 @@ jobs:
       - name: Create or checkout branch
         id: branch
         run: |
-          git checkout ${{ env.target_branch }}
-        working-directory: ./deployments
+          git -C ./deployments checkout ${{ env.target_branch }}
         continue-on-error: true
         
       - name: List files
-        run: ls -lR
-        working-directory: ./deployments
+        run: 
+          cd ./deployments
+          ls -lR        
 
       - name: Update repositories.json
         run: |
-          bash ./scripts/update_repositories.sh \
+          bash ./deployments/scripts/update_repositories.sh \
             ${{ env.repository_ref }} \
             ${{ env.repository_name }} \
             ${{ env.target_branch }} \
             ${{ env.commit_hash }}
-        working-directory: ./deployments
 
       # Pull down the most recent gitops repo changes to avoid fast-forward commits
       - name: Ensure latest from repo
-        run: git pull
-        working-directory: ./deployments
+        run: git -C ./deployments pull
 
       - name: Commit metadata to deployments repo
         if: ${{ env.testing == false }}
