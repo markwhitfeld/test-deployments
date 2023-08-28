@@ -68,7 +68,7 @@ jobs:
         continue-on-error: true
         
       - name: List files
-        run: 
+        run: |
           cd ./deployments
           ls -lR        
 
