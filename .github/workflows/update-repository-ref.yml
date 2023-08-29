@@ -96,7 +96,7 @@ jobs:
         with:
           repository: ./deployments
           branch: ${{ env.target_branch }}
-          commit_message: "chore: update metadata for ${{ env.repository_name }}:${{ env.branch_name }}"
+          commit_message: "chore: update metadata for ${{ env.repository_name }}@${{ env.branch_name }}"
           commit_user_name: stackblitz-gitops
           commit_user_email: devops@stackblitz.com
 
