@@ -15,7 +15,7 @@ on:
 env:  
   repository_name: ${{ inputs.repository_name }}
   repository_ref: ${{ github.repository }}
-  commit_hash: ${{ github.event.pull_request.head.sha || github.sha }}
+  commit_hash: ${{ inputs.image_commit_hash || github.event.pull_request.head.sha || github.sha }}
   branch_name: ${{ github.head_ref || github.ref_name}}  
   pr_state: ${{ github.event.pull_request.state }}
   target_branch: ${{ (github.head_ref || github.ref_name) == 'master' && 'main' || (github.head_ref || github.ref_name) }}
