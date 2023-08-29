@@ -107,15 +107,15 @@ jobs:
         id: cpr
         run: |
           gh auth login --with-token <<< "${{ secrets.deployments-repo-token }}"
-          gh pr create \
+          pr_url=`gh pr create \
             --repo "markwhitfeld/test-deployments" \
             --base "main" \
             --head "${{ env.target_branch }}" \
             --title "Deployment preview for ${{ env.branch_name }}" \
             --template ".github/pull_request_template.md" \
-            >> $PR_URL
-          echo "PR Url: $PR_URL"
-          echo "pull-request-url=$PR_URL" >> $GITHUB_OUTPUT
+            `
+          echo "PR Url: $pr_url"
+          echo "pull-request-url=$pr_url" >> $GITHUB_OUTPUT
         working-directory: ./deployments
         continue-on-error: true
 
