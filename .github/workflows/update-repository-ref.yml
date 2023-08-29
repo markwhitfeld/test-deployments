@@ -48,11 +48,14 @@ jobs:
         env:
           STEPS_CONTEXT: ${{ toJson(steps) }}
         run: echo "$STEPS_CONTEXT"
+        
       - name: Dump runner context
         env:
           RUNNER_CONTEXT: ${{ toJson(runner) }}
-        run: echo "$RUNNER_CONTEXT"
-
+        run: echo "$RUNNER_CONTEXT
+        
+      - name: Dump exports
+        run: export
         
       - name: Checkout ${{ github.action_repository }}
         uses: actions/checkout@v3
