@@ -67,7 +67,7 @@ jobs:
       - name: Create or checkout branch
         id: branch
         run: |
-          git checkout ${{ env.target_branch }}
+          git checkout -B ${{ env.target_branch }}
         working-directory: ./deployments
         continue-on-error: true
         
@@ -99,7 +99,6 @@ jobs:
           commit_message: "chore: update metadata for ${{ env.repository_name }}@${{ env.branch_name }}"
           commit_user_name: stackblitz-gitops
           commit_user_email: devops@stackblitz.com
-          create_branch: true
 
       - name: Create or update the PR if we are not committing to main
         if: ${{ env.testing == 'false' && env.target_branch != 'main' }}
