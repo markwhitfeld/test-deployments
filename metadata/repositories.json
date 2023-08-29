@@ -11,7 +11,7 @@
     "name": "test-service-two",
     "branches": {
       "main": {
-        "commit": "137dea24932cc4cfeafd121cb1a3ed6f6c36048a"
+        "commit": "1b7d39c1e0fcb711dee6b06e0bd79657bb59ec98"
       }
     }
   }
