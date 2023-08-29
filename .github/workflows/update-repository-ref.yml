@@ -113,6 +113,7 @@ jobs:
             --head "${{ env.target_branch }}" \
             --title "Deployment preview for ${{ env.branch_name }}" \
             --body-file ".github/pull_request_template.md" \
+            2>&1 \
             `
           echo "PR Url: $pr_url"
           echo "pull-request-url=$pr_url" >> $GITHUB_OUTPUT
