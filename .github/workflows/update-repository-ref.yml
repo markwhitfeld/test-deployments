@@ -104,15 +104,32 @@ jobs:
 
       - name: Create or update the PR if we are not committing to main
         if: ${{ env.testing == 'false' && env.target_branch != 'main' }}
-        uses: peter-evans/create-pull-request@v5
         id: cpr
-        with:
-          token: ${{ secrets.deployments-repo-token }}
-          # branch: ${{ env.target_branch }}
-          # base: main
-          title: "Deployment preview for ${{ env.branch_name }}"
-          body-path: ./deployments/.github/pull_request_template.md
-          path: ./deployments
+        run: |
+          gh auth login --with-token <<< "${{ secrets.deployments-repo-token }}"
+          gh pr create \
+            --repo "markwhitfeld/test-deployments" \
+            --base "main" \
+            --head "${{ env.target_branch }}" \
+            --title "Deployment preview for ${{ env.branch_name }}" \
+            --template ".github/pull_request_template.md" \
+            >> $PR_URL
+          echo "PR Url: $PR_URL"
+          echo "pull-request-url=$PR_URL" >> $GITHUB_OUTPUT
+        working-directory: ./deployments
+        continue-on-error: true
+
+      # - name: Create or update the PR if we are not committing to main
+      #   if: ${{ env.testing == 'false' && env.target_branch != 'main' }}
+      #   uses: peter-evans/create-pull-request@v5
+      #   id: cpr
+      #   with:
+      #     token: ${{ secrets.deployments-repo-token }}
+      #     branch: ${{ env.target_branch }}
+      #     base: main
+      #     title: "Deployment preview for ${{ env.branch_name }}"
+      #     body-path: ./deployments/.github/pull_request_template.md
+      #     path: ./deployments
 
       - name: Check outputs
         # if: ${{ steps.cpr.outputs.pull-request-number }}
