@@ -117,7 +117,7 @@ jobs:
             `
           readarray -t output_lines <<< "$output"
           pr_url=${output_lines[-1]}
-          echo "PR Url: $pr_url"
+          echo "$output"
           echo "pull-request-url=$pr_url" >> $GITHUB_OUTPUT
         working-directory: ./deployments
         continue-on-error: true
