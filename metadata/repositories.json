@@ -4,6 +4,9 @@
     "branches": {
       "main": {
         "commit": "cb85fbabb2c56a47c03b7ef3fd2ca96e44feb153"
+      },
+      "markwhitfeld/test-branch-sync": {
+        "commit": "550b7a9bc26e2988b57e51004fa23c7041235142"
       }
     }
   }
