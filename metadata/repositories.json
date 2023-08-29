@@ -9,5 +9,13 @@
         "commit": "550b7a9bc26e2988b57e51004fa23c7041235142"
       }
     }
+  },
+  "markwhitfeld/test-service2": {
+    "name": "test-service-two",
+    "branches": {
+      "markwhitfeld/test-branch-sync": {
+        "commit": "78af49064bb5376cee67b3f4fdb8546bdb20a21c"
+      }
+    }
   }
 }
