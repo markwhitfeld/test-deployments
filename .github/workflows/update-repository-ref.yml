@@ -109,6 +109,7 @@ jobs:
         with:
           token: ${{ secrets.deployments-repo-token }}
           branch: ${{ env.target_branch }}
+          base: main
           title: "Deployment preview for ${{ env.branch_name }}"
           body-path: ./deployments/.github/pull_request_template.md
           path: ./deployments
