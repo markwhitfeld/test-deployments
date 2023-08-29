@@ -67,7 +67,9 @@ jobs:
       - name: Create or checkout branch
         id: branch
         run: |          
-          git checkout ${{ env.target_branch }} || git checkout -b ${{ env.target_branch }}
+          git fetch origin ${{ env.target_branch }} --depth=1 && \
+            git checkout ${{ env.target_branch }} || \
+            git checkout -b ${{ env.target_branch }}
         working-directory: ./deployments
         continue-on-error: true
         
