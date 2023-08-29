@@ -3,6 +3,8 @@
 repository_ref="$1"
 repository_name="$2"
 branch_name="$3"
+# If the commit_hash is left blank then the branch will no longer have a specific commit reference.
+# eg. When a related service PR is closed then the commit_hash will be cleared
 commit_hash="$4"
 
 file_path="$(dirname $0)/../metadata/repositories.json"
