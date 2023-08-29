@@ -67,7 +67,7 @@ jobs:
       - name: Create or checkout branch
         id: branch
         run: |
-          git checkout -b ${{ env.target_branch }} || git checkout ${{ env.target_branch }}
+          git checkout -B ${{ env.target_branch }}
         working-directory: ./deployments
         continue-on-error: true
         
@@ -85,9 +85,9 @@ jobs:
         working-directory: ./deployments
 
       # Pull down the most recent gitops repo changes to avoid fast-forward commits
-      - name: Ensure latest from repo
-        run: git pull
-        working-directory: ./deployments
+      # - name: Ensure latest from repo
+      #   run: git pull
+      #   working-directory: ./deployments
 
       - name: Commit metadata to deployments repo
         if: ${{ env.testing == 'false' }}
