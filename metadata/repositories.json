@@ -8,10 +8,10 @@
     }
   },
   "markwhitfeld/test-service2": {
-    "name": "test-service-one",
+    "name": "test-service-two",
     "branches": {
       "main": {
-        "commit": "2220771833eb800cfd8fefbc9cb628ebceabdb8f"
+        "commit": "137dea24932cc4cfeafd121cb1a3ed6f6c36048a"
       }
     }
   }
