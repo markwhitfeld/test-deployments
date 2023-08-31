@@ -9,29 +9,35 @@ on:
 concurrency:
   group: ee-preview-${{ github.head_ref }} # ${{ github.head_ref }} will be blank on push events, but we don't mind workflow collisions on the default branch
   cancel-in-progress: true
+env:
+  ARGO_APP_NAME: pr-${{ github.event.pull_request.number }}-enterprise
+  ARGO_TARGET_MANIFEST_PATH: kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml
+  STACKBLITZ_ROOT_CA_CERT: ./deployments/stackblitz-root-ca-1.crt
+  GITOPS_REPO: "markwhitfeld/test-gitops"
+  # GITOPS_REPO: "stackblitz/gitops"
+
 jobs:
   trigger_build_and_rollout:
     env:
       PR_NUMBER: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }} # Current commit hash
       HEAD_REF: ${{ github.head_ref }} # Branch name
-      TEMPLATE_PATH: ./stackblitz/.preview-apps/dotcom-preview.tpl.yaml
-      ARGO_TARGET_MANIFEST_PATH: kubernetes/argo-apps/preview-apps/enterprise/pr-${{ github.event.pull_request.number }}-enterprise.yaml
+      TEMPLATE_PATH: ./deployments/.preview-apps/ee-preview.tpl.yaml
       PREVIEW_APP_DOMAIN: pr-${{ github.event.pull_request.number }}.enterprise.preview.stackblitz.com
     # Skip unless the box is ticked and the PR is open
     if: ${{ contains(github.event.pull_request.body, '- [x] Enterprise Server Preview App') && github.event.pull_request.state == 'open' }}
     name: Build & deploy
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout stackblitz/stackblitz
+      - name: Checkout stackblitz/deployments
         uses: actions/checkout@v3
         with:
-          path: ./stackblitz
+          path: ./deployments
 
       - name: Checkout stackblitz/gitops
         uses: actions/checkout@v3
         with:
-          repository: "stackblitz/gitops"
+          repository: ${{ env.GITOPS_REPO }}
           token: ${{ secrets.GITOPS_REPO_PAT }}
           path: ./gitops
 
@@ -41,6 +47,7 @@ jobs:
           BRANCH_NAME: ${{ github.head_ref }}
           ROOT_ZONE: ${{ env.PREVIEW_APP_DOMAIN }}
         run: |
+          bash ./deployments/scripts/load_repository_hashes_to_env.sh
           mkdir -p "$(dirname ./gitops/${{ env.ARGO_TARGET_MANIFEST_PATH }})" \
           && envsubst < ${{ env.TEMPLATE_PATH }} > ./gitops/${{ env.ARGO_TARGET_MANIFEST_PATH }}
 
@@ -54,7 +61,7 @@ jobs:
         with:
           repository: ./gitops
           branch: main
-          commit_message: "chore: sync pr-${{ github.event.pull_request.number }}-enterprise"
+          commit_message: "chore: sync ${{ env.ARGO_APP_NAME }}"
           commit_user_name: stackblitz-gitops
           commit_user_email: devops@stackblitz.com
 
@@ -64,9 +71,9 @@ jobs:
         with:
           comment_tag: ee-preview-status
           message: |
-            ArgoCD will roll out your Enterprise Edition preview shortly :hammer_and_wrench: See https://github.com/stackblitz/gitops/commit/${{ steps.gitops-auto-commit.outputs.commit_hash }}
-            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/stackblitz/gitops/blob/main/${{ env.ARGO_TARGET_MANIFEST_PATH }}#L30)  :memo:
-            If something seems stuck, check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/pr-${{ github.event.pull_request.number }}-enterprise)  :mag:
+            ArgoCD will roll out your Enterprise Edition preview shortly :hammer_and_wrench: See https://github.com/${{ env.GITOPS_REPO }}/commit/${{ steps.gitops-auto-commit.outputs.commit_hash }}
+            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/${{ env.GITOPS_REPO }}/blob/main/${{ env.ARGO_TARGET_MANIFEST_PATH }}#L30)  :memo:
+            If something seems stuck, check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/${{ env.ARGO_APP_NAME }})  :mag:
             If you have any questions or issues, engage [`#devops` on Slack](https://stackblitz.slack.com/archives/C01F59F8J4B)  :mechanic:
           mode: recreate
 
@@ -81,7 +88,7 @@ jobs:
           method: GET
           expected-status: 503
         env:
-          NODE_EXTRA_CA_CERTS: ./stackblitz/stackblitz-root-ca-1.crt
+          NODE_EXTRA_CA_CERTS: ${{ env.STACKBLITZ_ROOT_CA_CERT }}
 
       - name: Wait for readiness
         uses: mydea/action-wait-for-api@v1
@@ -92,7 +99,7 @@ jobs:
           method: GET
           expected-status: 200
         env:
-          NODE_EXTRA_CA_CERTS: ./stackblitz/stackblitz-root-ca-1.crt
+          NODE_EXTRA_CA_CERTS: ${{ env.STACKBLITZ_ROOT_CA_CERT }}
 
       - name: Publish status
         uses: thollander/actions-comment-pull-request@v2
@@ -100,8 +107,8 @@ jobs:
           comment_tag: ee-preview-status
           message: |
             Your Enterprise Edition preview is ready! https://${{ env.PREVIEW_APP_DOMAIN }}  :zap:
-            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/stackblitz/gitops/blob/main/${{ env.ARGO_TARGET_MANIFEST_PATH }}#L30)  :memo:
-            You can check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/pr-${{ github.event.pull_request.number }}-enterprise) if you're interested  :mag:
+            Push commits to this branch to trigger another rollout, or merge a pull request with updates to your [Helm values](https://github.com/${{ env.GITOPS_REPO }}/blob/main/${{ env.ARGO_TARGET_MANIFEST_PATH }}#L30)  :memo:
+            You can check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/${{ env.ARGO_APP_NAME }}) if you're interested  :mag:
 
             ---
             Initial login:
@@ -121,7 +128,7 @@ jobs:
       - name: Checkout stackblitz/gitops
         uses: actions/checkout@v3
         with:
-          repository: "stackblitz/gitops"
+          repository: ${{ env.GITOPS_REPO }}
           token: ${{ secrets.GITOPS_REPO_PAT }}
           path: ./gitops
 
@@ -139,7 +146,7 @@ jobs:
         with:
           repository: ./gitops
           branch: main
-          commit_message: "chore: prune pr-${{ github.event.pull_request.number }}-enterprise"
+          commit_message: "chore: prune ${{ env.ARGO_APP_NAME }}"
           commit_user_name: stackblitz-gitops
           commit_user_email: devops@stackblitz.com
 
@@ -149,8 +156,8 @@ jobs:
         with:
           comment_tag: ee-preview-status
           message: |
-            Your Enterprise Edition preview will be pruned by ArgoCD shortly  :broom: See https://github.com/stackblitz/gitops/commit/${{ steps.gitops-auto-commit.outputs.commit_hash }}
-            You can check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/pr-${{ github.event.pull_request.number }}-enterprise) if you're interested, but you shouldn't find much  :mag:
+            Your Enterprise Edition preview will be pruned by ArgoCD shortly  :broom: See https://github.com/${{ env.GITOPS_REPO }}/commit/${{ steps.gitops-auto-commit.outputs.commit_hash }}
+            You can check the ArgoCD app sync status [here](https://argocd2.internal.stackblitz.dev/applications/argo-cd/${{ env.ARGO_APP_NAME }}) if you're interested, but you shouldn't find much  :mag:
             If you have any questions or issues, engage [`#devops` on Slack](https://stackblitz.slack.com/archives/C01F59F8J4B)  :mechanic:
 
   rollout_default:
@@ -175,7 +182,7 @@ jobs:
       - name: Checkout stackblitz/gitops
         uses: actions/checkout@v3
         with:
-          repository: "stackblitz/gitops"
+          repository: ${{ env.GITOPS_REPO }}
           token: ${{ secrets.GITOPS_REPO_PAT }}
           path: ./gitops
 
@@ -208,7 +215,7 @@ jobs:
           method: GET
           expected-status: 503
         env:
-          NODE_EXTRA_CA_CERTS: ./stackblitz/stackblitz-root-ca-1.crt
+          NODE_EXTRA_CA_CERTS: ${{ env.STACKBLITZ_ROOT_CA_CERT }}
 
       - name: Wait for readiness
         uses: mydea/action-wait-for-api@v1
@@ -219,4 +226,4 @@ jobs:
           method: GET
           expected-status: 200
         env:
-          NODE_EXTRA_CA_CERTS: ./stackblitz/stackblitz-root-ca-1.crt
+          NODE_EXTRA_CA_CERTS: ${{ env.STACKBLITZ_ROOT_CA_CERT }}
