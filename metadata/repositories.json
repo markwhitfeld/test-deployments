@@ -1,6 +1,7 @@
 {
   "markwhitfeld/test-service1": {
     "name": "test-service-one",
+    "env": "TEST_SERVICE_ONE_HASH",
     "branches": {
       "main": {
         "commit": "cb85fbabb2c56a47c03b7ef3fd2ca96e44feb153"
@@ -9,6 +10,7 @@
   },
   "markwhitfeld/test-service2": {
     "name": "test-service-two",
+    "env": "TEST_SERVICE_TWO_HASH",
     "branches": {
       "main": {
         "commit": "1b7d39c1e0fcb711dee6b06e0bd79657bb59ec98"
