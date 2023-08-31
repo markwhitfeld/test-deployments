@@ -83,7 +83,7 @@ jobs:
             ${{ env.repository_ref }} \
             ${{ env.repository_name }} \
             ${{ env.target_branch }} \
-            ${{ env.commit_hash }}
+            ${{ env.pr_state != 'closed' && env.commit_hash || '' }}
         working-directory: ./deployments
 
       # Pull down the most recent gitops repo changes to avoid fast-forward commits

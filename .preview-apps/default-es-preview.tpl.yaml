@@ -1,0 +1,225 @@
+# $BRANCH_NAME-enterprise.yaml
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    stackblitz.io/preview: "true"
+  name: $BRANCH_NAME-enterprise-2
+  test1: $TEST_SERVICE_ONE_HASH
+  test2: $TEST_SERVICE_TWO_HASH
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    namespace: $BRANCH_NAME-enterprise-2
+    server: https://kubernetes.default.svc
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: false
+    syncOptions:
+      - CreateNamespace=false
+  source:
+    path: enterprise
+    repoURL: "git@github.com:stackblitz/charts"
+    targetRevision: main
+    helm:
+      ignoreMissingValueFiles: false
+      valueFiles:
+        - preview-default-values.yaml
+      values: |
+        global:
+          config: rootZone
+        commonLabels:
+          stackblitz.io/rails-app-commit: $RAILS_HASH
+        app:
+          image:
+            tag: "$RAILS_HASH"
+          secrets:
+            inline:
+              turboTokenSecret: insecure-token-secret
+              turboTokenPayloadSecret: insecure-token-secret
+          initContainers:
+            - args:
+                - bundle
+                - exec
+                - rake
+                - admin:update_account
+              env:
+                - name: DATABASE_PASSWORD_FILE
+                  value: "/opt/bitnami/postgresql/secrets/postgres-password"
+              envFrom:
+                - configMapRef:
+                    name: $BRANCH_NAME-enterprise-2-stackblitz-app-envvars
+              image: "gcr.io/stackblitz-images/stackblitz:$RAILS_HASH"
+              imagePullPolicy: Always
+              name: update-admin-account
+              volumeMounts:
+                - name: postgresql-password
+                  mountPath: /opt/bitnami/postgresql/secrets/
+                - mountPath: /var/run/secrets/stackblitz/inline
+                  name: inline-secrets
+                  readOnly: true
+                - name: update-admin-account-rake
+                  mountPath: /var/lib/stackblitz/rails/lib/tasks/update-admin-account.rake
+                  subPath: update-admin-account.rake
+          rootZone: $BRANCH_NAME.enterprise.preview.stackblitz.com
+          extraEnvVars:
+            - name: APPSIGNAL_APP_ENV
+              value: preview
+            - name: APP_BRANDING_ICON_TYPE
+              value: preview
+            - name: APP_BRANDING_TITLE_SUFFIX
+              value: "[preview-ee:$BRANCH_NAME]"
+          extraVolumes:
+            - name: update-admin-account-rake
+              configMap:
+                name: update-admin-account-rake
+
+        stackblitz-services:
+          secrets:
+            REDIS_RESOLVER_PASSWORD: ""
+            TURBO_TOKEN_SECRET: insecure-token-secret
+            TURBO_TOKEN_PAYLOAD_SECRET: insecure-token-secret
+              turboTokenPayloadSecret:
+          config:
+            bucketName: stackblitz-services
+            redis:
+              host: $BRANCH_NAME-enterprise-2-redis-master
+              dbIndex: 2
+        stackblitz-turbo:
+          secrets:
+            REDIS_PACKAGES_PASSWORD: ""
+            TURBO_TOKEN_SECRET: insecure-token-secret
+            TURBO_TOKEN_PAYLOAD_SECRET: insecure-token-secret
+          extraSecrets:
+            $BRANCH_NAME-enterprise-2-minio:
+              MINIO_SECRET_ACCESS_KEY: root-password
+              MINIO_ACCESS_KEY_ID: root-user
+          config:
+            bucketName: stackblitz-turbo
+            redis:
+              host: $BRANCH_NAME-enterprise-2-redis-master
+            minio:
+              host: $BRANCH_NAME-enterprise-2-minio
+              port: 9000
+        webcontainerServer:
+          replicaCount: 2
+        minio:
+          extraEnvVars:
+            - name: MINIO_API_CORS_ALLOW_ORIGIN
+              value: https://editor.$BRANCH_NAME.enterprise.preview.stackblitz.com
+        extraDeploy:
+          - |
+            apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: $BRANCH_NAME-enterprise-2
+          - |
+            apiVersion: kubernetes-client.io/v1
+            kind: ExternalSecret
+            metadata:
+              name: gcr-json-key
+            spec:
+              backendType: secretsManager
+              template:
+                type: kubernetes.io/dockerconfigjson
+              data:
+                - key: gcr-dockerconfigjson
+                  name: .dockerconfigjson
+          - |
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              labels:
+                app: test-saml-idp
+              name: test-saml-idp
+            spec:
+              replicas: 1
+              selector:
+                matchLabels:
+                  app: test-saml-idp
+              strategy:
+                type: Recreate
+              template:
+                metadata:
+                  labels:
+                    app: test-saml-idp
+                spec:
+                  containers:
+                    - env:
+                        - name: SIMPLESAMLPHP_SP_ENTITY_ID
+                          value: preview
+                        - name: SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE
+                          value: https://editor.$BRANCH_NAME.enterprise.preview.stackblitz.com/api/users/auth/saml/callback
+                      image: kristophjunge/test-saml-idp
+                      imagePullPolicy: Always
+                      name: test-saml-idp
+          - |
+            apiVersion: v1
+            kind: Service
+            metadata:
+              labels:
+                app: test-saml-idp
+              name: test-saml-idp
+            spec:
+              ports:
+                - name: port-1
+                  port: 8080
+              selector:
+                app: test-saml-idp
+          - |
+            apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+              annotations:
+                cert-manager.io/private-key-algorithm: ECDSA
+                cert-manager.io/cluster-issuer: vault-issuer
+              name: test-saml-idp
+            spec:
+              ingressClassName: nginx
+              rules:
+                - host: auth.$BRANCH_NAME.enterprise.preview.stackblitz.com
+                  http:
+                    paths:
+                      - backend:
+                          service:
+                            name: test-saml-idp
+                            port:
+                              name: port-1
+                        path: /
+                        pathType: Prefix
+              tls:
+                - hosts:
+                    - 'auth.$BRANCH_NAME.enterprise.preview.stackblitz.com'
+                  secretName: auth.$BRANCH_NAME.enterprise.preview.stackblitz.com-tls
+          - |
+            apiVersion: v1
+            data:
+              update-admin-account.rake: |
+                namespace :admin do
+                  desc 'Set the password of the admin user'
+                  task update_account: :environment do
+                    admin_user = User.find_by(username: 'admin')
+                    if admin_user.nil?
+                      puts 'admin user not found'
+                    elsif admin_user.valid_password?('~StackblitzAdmin1~')
+                      admin_user.password = '$BRANCH_NAME~1aZ'
+                      admin_user.email = 'enterprise-preview@example.com'
+                      if admin_user.save
+                        puts 'admin account updated'
+                      else
+                        puts 'Error changing password'
+                        puts admin_user.errors.full_messages
+                        exit 1
+                      end
+                    else
+                      puts 'admin password is already not default - nothing to do!'
+                    end
+                  end
+                end
+            kind: ConfigMap
+            metadata:
+              name: update-admin-account-rake

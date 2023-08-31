@@ -1,0 +1,83 @@
+name: EE Preview App
+on:
+  push:
+    branches:
+      - master
+      - main
+concurrency:
+  group: ee-preview-${{ github.ref_name }}
+  cancel-in-progress: true
+env:
+  BRANCH_NAME: ${{ github.ref_name }}
+  TEMPLATE_PATH: ./deployments/.preview-apps/default-es-preview.tpl.yaml
+  PREVIEW_APP_DOMAIN: ${{ github.ref_name }}.enterprise.preview.stackblitz.com
+  ARGO_APP_NAME: ${{ github.ref_name }}-enterprise
+  ARGO_TARGET_MANIFEST_PATH: kubernetes/argo-apps/preview-apps/enterprise
+  STACKBLITZ_ROOT_CA_CERT: ./deployments/stackblitz-root-ca-1.crt
+  GITOPS_REPO: "markwhitfeld/test-gitops"
+  # GITOPS_REPO: "stackblitz/gitops"
+
+jobs:
+  rollout_default:
+    # Skip unless this is a push event, specifically on the default branch (which we already filtered at the workflow's top level)
+    if: ${{ github.event_name == 'push' }}
+    name: Roll out default branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout stackblitz/deployments
+        uses: actions/checkout@v3
+        with:
+          path: ./deployments
+
+      - name: Checkout stackblitz/gitops
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ secrets.GITOPS_REPO_PAT }}
+          path: ./gitops
+
+      - name: Update or create ArgoCD Application manifest
+        env:
+          # Not right, but we can go with this for now
+          RAILS_HASH: ${{ github.sha }} # Current commit hash
+        run: |
+          source ./deployments/scripts/load_repository_hashes_to_env.sh ${{ env.BRANCH_NAME }}
+          mkdir -p ./gitops/${{ env.ARGO_TARGET_MANIFEST_PATH }} \
+          && envsubst < ${{ env.TEMPLATE_PATH }} > ./gitops/${{ env.ARGO_TARGET_MANIFEST_PATH }}/${{ env.ARGO_APP_NAME }}.yaml
+
+      # pull down the most recent gitops repo changes to avoid fast-forward commits
+      - name: Pull gitops repo
+        run: git -C ./gitops pull
+
+      - name: Sync gitops repo
+        uses: stefanzweifel/git-auto-commit-action@v4
+        id: gitops-auto-commit
+        with:
+          repository: ./gitops
+          branch: main
+          commit_message: "chore: sync ${{ env.ARGO_APP_NAME }}"
+          commit_user_name: stackblitz-gitops
+          commit_user_email: devops@stackblitz.com
+
+      - name: Wait for teardown
+        if: steps.gitops-auto-commit.outputs.changes_detected == 'true'
+        uses: mydea/action-wait-for-api@v1
+        with:
+          url: "https://editor.${{ env.PREVIEW_APP_DOMAIN }}/users/sign_in"
+          timeout: 900
+          interval: 2
+          method: GET
+          expected-status: 503
+        env:
+          NODE_EXTRA_CA_CERTS: ${{ env.STACKBLITZ_ROOT_CA_CERT }}
+
+      - name: Wait for readiness
+        uses: mydea/action-wait-for-api@v1
+        with:
+          url: "https://editor.${{ env.PREVIEW_APP_DOMAIN }}/users/sign_in"
+          timeout: 900
+          interval: 2
+          method: GET
+          expected-status: 200
+        env:
+          NODE_EXTRA_CA_CERTS: ${{ env.STACKBLITZ_ROOT_CA_CERT }}
