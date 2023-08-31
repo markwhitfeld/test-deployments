@@ -21,6 +21,9 @@ jobs:
     if: ${{ contains(github.event.pull_request.body, '- [x] Enterprise Server Preview App') && github.event.pull_request.state == 'open' }}
     name: Build & deploy
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write 
     steps:
       - name: Checkout stackblitz/deployments
         uses: actions/checkout@v3
