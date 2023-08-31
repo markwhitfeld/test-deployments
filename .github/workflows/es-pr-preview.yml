@@ -1,4 +1,4 @@
-name: EE Preview App
+name: Enterprise Server PR Preview App
 on:
   pull_request:
     types: [opened, reopened, edited, synchronize, closed]
