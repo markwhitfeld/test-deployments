@@ -122,6 +122,9 @@ jobs:
     if: ${{ !contains(github.event.pull_request.body, '- [x] Enterprise Server Preview App') || github.event.pull_request.state == 'closed' }}
     name: Clean up
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write 
     steps:
       - name: Checkout stackblitz/gitops
         uses: actions/checkout@v3
