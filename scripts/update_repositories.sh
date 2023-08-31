@@ -7,7 +7,7 @@ branch_name="$3"
 # eg. When a related service PR is closed then the commit_hash will be cleared
 commit_hash="$4"
 
-file_path="$(dirname $0)/../metadata/repositories.json"
+file_path="$(dirname "${BASH_SOURCE[0]}")/../metadata/repositories.json"
 
 if [ ! -f "$file_path" ]; then
   echo "{}" > "$file_path"
