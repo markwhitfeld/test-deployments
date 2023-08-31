@@ -6,6 +6,8 @@ metadata:
   annotations:
     stackblitz.io/preview: "true"
   name: $BRANCH_NAME-enterprise-2
+  test1: $TEST_SERVICE_ONE_HASH
+  test2: $TEST_SERVICE_TWO_HASH
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -31,10 +33,10 @@ spec:
         global:
           config: rootZone
         commonLabels:
-          stackblitz.io/rails-app-commit: $GIT_SHA
+          stackblitz.io/rails-app-commit: $RAILS_HASH
         app:
           image:
-            tag: "$GIT_SHA"
+            tag: "$RAILS_HASH"
           secrets:
             inline:
               turboTokenSecret: insecure-token-secret
@@ -51,7 +53,7 @@ spec:
               envFrom:
                 - configMapRef:
                     name: $BRANCH_NAME-enterprise-2-stackblitz-app-envvars
-              image: "gcr.io/stackblitz-images/stackblitz:$GIT_SHA"
+              image: "gcr.io/stackblitz-images/stackblitz:$RAILS_HASH"
               imagePullPolicy: Always
               name: update-admin-account
               volumeMounts:

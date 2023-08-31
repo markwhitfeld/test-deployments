@@ -6,6 +6,8 @@ metadata:
   annotations:
     stackblitz.io/preview: "true"
   name: pr-$PR_NUMBER-enterprise
+  test1: $TEST_SERVICE_ONE_HASH
+  test2: $TEST_SERVICE_TWO_HASH
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -41,10 +43,10 @@ spec:
             bundleBucket: sb-bundles"
             ngccBucket: "sb-ngcc"
         commonLabels:
-          stackblitz.io/rails-app-commit: $HEAD_SHA
+          stackblitz.io/rails-app-commit: $RAILS_HASH
         app:
           image:
-            tag: "$HEAD_SHA"
+            tag: "$RAILS_HASH"
           secrets:
             inline:
               turboTokenSecret: insecure-token-secret
@@ -61,7 +63,7 @@ spec:
               envFrom:
                 - configMapRef:
                     name: pr-$PR_NUMBER-enterprise-stackblitz-app-env
-              image: "gcr.io/stackblitz-images/stackblitz:$HEAD_SHA"
+              image: "gcr.io/stackblitz-images/stackblitz:$RAILS_HASH"
               imagePullPolicy: Always
               name: update-admin-account
               volumeMounts:
@@ -86,7 +88,7 @@ spec:
             - name: APP_BRANDING_ICON_TYPE
               value: preview
             - name: APP_BRANDING_TITLE_SUFFIX
-              value: "[preview-ee:$HEAD_REF]"
+              value: "[preview-ee:$BRANCH_NAME]"
           extraVolumes:
             - name: update-admin-account-rake
               configMap:
@@ -254,7 +256,7 @@ spec:
                     if admin_user.nil?
                       puts 'admin user not found'
                     elsif admin_user.valid_password?('~StackblitzAdmin1~')
-                      admin_user.password = '$HEAD_REF~1aZ'
+                      admin_user.password = '$BRANCH_NAME~1aZ'
                       admin_user.email = 'enterprise-preview@example.com'
                       if admin_user.save
                         puts 'admin account updated'
