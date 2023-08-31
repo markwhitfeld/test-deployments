@@ -1,4 +1,4 @@
-name: EE Preview App
+name: Enterprise Server Main Preview App
 on:
   push:
     branches:
