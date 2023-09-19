@@ -4,7 +4,7 @@
     "env": "TEST_SERVICE_ONE_HASH",
     "branches": {
       "main": {
-        "commit": "cb85fbabb2c56a47c03b7ef3fd2ca96e44feb153"
+        "commit": "a2b6b6ff8752635eef2b20e2bac89571d6e24989"
       }
     }
   },
